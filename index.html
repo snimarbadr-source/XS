@@ -1,0 +1,163 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>تحديث مركز العمليات للصحة</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+    <header class="top">
+    <div class="brand">
+      <img class="logo l" src="assets/logo-left.png" alt="logo" />
+      <div class="brandText">
+        <div class="title">تحديث مركز العمليات للصحة</div>
+        <div class="subtitle">مستشفى ريسبكت</div>
+      </div>
+      <img class="logo r" src="assets/logo-right.png" alt="logo" />
+    </div>
+  </header>
+
+  <main class="wrap">
+    <section class="card">
+      <div class="card-h">
+        <div class="h">إدخال الصورة / النص</div>
+        <div class="muted">الصق صورة بـ CTRL+V أو ارفعها. يتم الاستيراد تلقائياً فور التعرف على النص.</div>
+      </div>
+
+      <div class="actions">
+        <label class="btn">
+          <input id="imageInput" type="file" accept="image/*" hidden />
+          رفع صورة
+        </label>
+
+        <button id="clearImageBtn" class="btn ghost" type="button">حذف الصورة</button>
+        <button id="clearAllBtn" class="btn ghost" type="button">مسح الكل</button>
+
+        <div class="progress">
+          <div id="bar" class="bar"></div>
+          <div id="progressText" class="pct">0%</div>
+        </div>
+      </div>
+
+      <div class="grid2">
+        <div>
+          <div class="label">معاينة الصورة</div>
+          <div id="pasteZone" class="pasteZone" tabindex="0" aria-label="paste zone">
+            اضغط هنا ثم الصق الصورة بـ CTRL + V
+          </div>
+          <canvas id="previewCanvas" class="preview"></canvas>
+        </div>
+
+        <div>
+          <div class="label">النص للاستيراد (سطر لكل اسم)</div>
+          <textarea id="textInput" class="ta" placeholder="مثال:
+سياف الاعور | DA1
+حسين احمد | N8
+عبدالله زمان | N4"></textarea>
+          <div class="row">
+            <button id="importTextBtn" class="btn" type="button">استيراد من النص</button>
+            <button id="copyImportBtn" class="btn ghost" type="button">نسخ النص</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="card">
+      <div class="card-h">
+        <div class="h">المدخلات</div>
+        <div class="muted">الموقع: لوس / ساندي / بوليتو — الحالة: في الميدان / مشغول - اختبار / مشغول - تدريب / خارج الخدمة</div>
+      </div>
+
+      <div class="grid2">
+        <div class="box">
+          <div class="label">المستلم</div>
+          <input id="receiverName" class="in" placeholder="الاسم" />
+          <input id="receiverCode" class="in" placeholder="الكود" />
+        </div>
+        <div class="box">
+          <div class="label">النائب</div>
+          <input id="deputyName" class="in" placeholder="الاسم" />
+          <input id="deputyCode" class="in" placeholder="الكود" />
+        </div>
+      </div>
+
+      <div class="row">
+        <button id="addRowBtn" class="btn" type="button">إضافة سطر جديد</button>
+      </div>
+
+      <div class="tableWrap">
+        <table class="tbl">
+          <thead>
+            <tr>
+              <th>الكود</th>
+              <th>الاسم</th>
+              <th>الموقع</th>
+              <th>الحالة</th>
+              <th>إجراءات</th>
+            </tr>
+          </thead>
+          <tbody id="rowsBody"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="card">
+      <div class="card-h">
+        <div class="h">النتيجة النهائية</div>
+        <div class="muted">تتحدث تلقائياً.</div>
+      </div>
+      <div class="row">
+        <button id="copyFinalBtn" class="btn" type="button">نسخ النتيجة</button>
+      </div>
+      <pre id="finalOut" class="out"></pre>
+    </section>
+  </main>
+
+  <div id="modal" class="modal hidden" role="dialog" aria-modal="true">
+    <div class="modalCard">
+      <div class="modalH">
+        <div class="h">سطر جديد / تعديل</div>
+        <button id="closeModalBtn" class="x" type="button">×</button>
+      </div>
+
+      <div class="grid2">
+        <div>
+          <div class="label">الاسم</div>
+          <input id="mName" class="in" />
+        </div>
+        <div>
+          <div class="label">الكود</div>
+          <input id="mCode" class="in" />
+        </div>
+      </div>
+
+      <div class="grid2">
+        <div>
+          <div class="label">الموقع</div>
+          <select id="mLoc" class="in">
+            <option value="لوس">لوس</option>
+            <option value="ساندي">ساندي</option>
+            <option value="بوليتو">بوليتو</option>
+          </select>
+        </div>
+        <div>
+          <div class="label">الحالة</div>
+          <select id="mState" class="in">
+            <option value="في الميدان">في الميدان</option>
+            <option value="مشغول - اختبار">مشغول - اختبار</option>
+            <option value="مشغول - تدريب">مشغول - تدريب</option>
+            <option value="خارج الخدمة">خارج الخدمة</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="row end">
+        <button id="saveRowBtn" class="btn" type="button">حفظ</button>
+      </div>
+    </div>
+  </div>
+
+  <script defer src="app.js"></script>
+</body>
+</html>
