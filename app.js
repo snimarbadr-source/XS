@@ -9,7 +9,7 @@
   const progressText = $('progressText');
   const bar = $('bar');
 
-  const textInput = $('textInput'); // كان يسمى importText في كودك الجديد، حافظنا على textInput
+  const textInput = $('textInput'); 
   const importTextBtn = $('importTextBtn');
   const copyImportBtn = $('copyImportBtn');
 
@@ -35,7 +35,7 @@
   const mState = $('mState');
 
   const LOCS = ['لوس','ساندي','بوليتو'];
-  // تم تثبيت التعديل: "خارج الميدان" الى "خارج الخدمة"
+  // تم التثبيت: من "خارج الميدان" إلى "خارج الخدمة"
   const STATES = ['في الميدان','مشغول - اختبار','مشغول - تدريب','خارج الخدمة'];
 
   let rows = []; // {id,name,code,loc,state}
@@ -57,7 +57,8 @@
   // تحميل مكتبة Tesseract من CDN
   function loadScriptOnce(src) {
     return new Promise((resolve, reject) => {
-      if ([...document.scripts].some(s => s.src === src)) return resolve();
+      // تجنب التحميل المكرر
+      if ([...document.scripts].some(s => s.src === src)) return resolve(); 
       const s = document.createElement("script");
       s.src = src;
       s.onload = resolve;
@@ -65,7 +66,7 @@
       document.head.appendChild(s);
     });
   }
-
+  
   // قراءة ملف صورة إلى Image
   function fileToImage(file) {
     return new Promise((resolve, reject) => {
@@ -80,13 +81,13 @@
   // تنظيف نص OCR
   function normalizeOCRText(txt) {
     return (txt || "")
-      .replace(/[#!@\$%\^&\*\(\)_+=\[\]{};:'"\\|<>\/?]/g, " ") // حذف الرموز
-      .replace(/[•·●]/g, " ")                                 // حذف نقاط
-      .replace(/\u200e|\u200f|\u202a|\u202b|\u202c|\u202d|\u202e/g, "") // اتجاه
+      .replace(/[#!@\$%\^&\*\(\)_+=\[\]{};:'"\\|<>\/?]/g, " ") 
+      .replace(/[•·●]/g, " ")                                
+      .replace(/\u200e|\u200f|\u202a|\u202b|\u202c|\u202d|\u202e/g, "") 
       .replace(/\s+/g, " ")
       .trim();
   }
-
+  
   // استخراج الكود من سطر: (DS|DA|AD|D|N|C|T|V|A) + رقم أو رقم مكون من 2-4 خانات
   function bestCodeFromString(text) {
     const s = (text || "").toUpperCase().replace(/\s+/g, " ").trim();
@@ -100,16 +101,15 @@
 
     return "";
   }
-
-  // تنظيف الكود النهائي (نستخدم bestCodeFromString لتكون هي الأساس)
+  
+  // تنظيف الكود النهائي
   function sanitizeCode(s) {
     const t = (s || "").toUpperCase().replace(/\s+/g, "");
     const c = bestCodeFromString(t);
-    // إذا لم نجد كود قياسي، نعود للأرقام فقط إذا كانت 2-4 خانات (لتغطية أكواد مثل '311')
-    const digitMatch = t.match(/\d{2,4}/);
+    // نغطي الأكواد الرقمية فقط 2-4 خانات
+    const digitMatch = t.match(/\d{2,4}/); 
     return c || (digitMatch ? digitMatch[0] : '');
   }
-
 
   // تنظيف الاسم (عربي فقط)
   function sanitizeArabicName(s) {
@@ -125,7 +125,7 @@
     return only || t;
   }
 
-  // تحويل نص OCR إلى قائمة {id, name, code, loc, state} - (كانت parsePairsFromOCR)
+  // تحويل نص OCR إلى قائمة {id, name, code, loc, state} 
   function parsePairs(text) {
     const out = [];
     const lines = (text || "").split(/\r?\n/).map(x => x.trim()).filter(Boolean);
@@ -140,102 +140,33 @@
       let code = "";
 
       if (parts.length >= 2) {
-        // نأخذ الكود من الجزء الثاني ونتأكد من انه كود صحيح، ثم الاسم من الأول
         code = sanitizeCode(parts[1]);
         name = sanitizeArabicName(parts[0]);
       } else {
-        // حاول استخراج الكود من السطر كامل
         code = bestCodeFromString(ln) || sanitizeCode(ln);
         
-        // إذا لم نجد كود، ننتقل للسطر التالي
         if (!code) continue;
 
         // الاسم = السطر بدون الكود
         name = sanitizeArabicName(ln.replace(new RegExp(code, "i"), " "));
       }
 
-      // إذا كان الاسم لا يزال يحتوي على الكود في البداية/النهاية
+      // إزالة الكود من الاسم في حال التلاصق
       if (name.toUpperCase().includes(code.toUpperCase())) {
         name = sanitizeArabicName(name.replace(new RegExp(code, "i"), " "));
       }
       
-      if (!name || !code) continue;
-      // التأكد من أن الاسم ليس مجرد الكود
-      if (name === code) continue; 
+      if (!name || !code || name === code) continue; 
       
       out.push({ id: uid(), name, code, loc: 'لوس', state: 'في الميدان' }); // إضافة الحقول الافتراضية
     }
     return out;
   }
   
-  // الـ OCR الرئيسي (مدمج بدلاً من runOCRFromFile القديمة)
-  async function runOCRFromFile(file){ 
-    setProgress(0);
-    
-    try {
-        const img = await fileToImage(file);
-        drawPreviewFromImage(img); // عرض معاينة للصورة
-
-        // Load Tesseract.js using the new utility
-        await loadScriptOnce("https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js");
-
-        const worker = await Tesseract.createWorker({
-            logger: m => {
-                if (m.status === "recognizing text") {
-                    // تحديث شريط التقدم
-                    setProgress((m.progress || 0) * 100);
-                }
-            }
-        });
-
-        try {
-            await worker.loadLanguage("ara+eng");
-            await worker.initialize("ara+eng");
-
-            await worker.setParameters({
-                tessedit_pageseg_mode: "6",
-                preserve_interword_spaces: "1"
-            });
-
-            const { data } = await worker.recognize(img);
-            const rawText = data?.text || "";
-            const cleaned = normalizeOCRText(rawText); 
-
-            // استخراج وتوزيع
-            const pairs = parsePairs(cleaned);
-
-            if (!pairs.length){
-                alert('لم يتم استخراج أسماء/أكواد بشكل كافٍ. جرّب صورة أوضح/أقرب للقائمة أو استخدم الاستيراد بالنص.');
-                setProgress(0);
-                // عرض النص الخام المنظف في مربع النص للمراجعة اليدوية
-                textInput.value = cleaned;
-                return;
-            }
-            
-            // عرض النتيجة في مربع الاستيراد بالنظام المعتاد (الاسم | الكود)
-            textInput.value = pairs.map(p => `${p.name} | ${p.code}`).join('\n');
-
-            // **الخطوة الحاسمة: توزيع البيانات على النموذج الداخلي**
-            pairs.forEach(upsertRow);
-            renderRows();
-            
-            setProgress(100);
-
-        } finally {
-            await worker.terminate();
-        }
-    } catch(e) {
-        console.error(e);
-        alert('تعذر استخراج النص (قد يكون اتصال CDN أو صورة غير واضحة). استخدم الاستيراد بالنص.');
-        setProgress(0);
-    }
-  }
-
-
   // ===================================
   // وظائف التطبيق الرئيسية
   // ===================================
-
+  
   function upsertRow(r){
     const code = sanitizeCode(r.code);
     const name = sanitizeArabicName(r.name);
@@ -332,7 +263,7 @@
     lines.push('🏥 مستشفى بوليتو');
     byLoc['بوليتو'].forEach(r => lines.push(`${r.name} | ${r.code}${(r.state && r.state.startsWith('مشغول')) ? ` ( ${r.state} )` : ''}`));
     lines.push('');
-    // التعديل هنا: إظهار تفاصيل "خارج الخدمة" بدلاً من العدد فقط
+    // إظهار تفاصيل "خارج الخدمة"
     lines.push(`خارج الخدمة : (${outOfService.length})`);
     outOfService.forEach(r => lines.push(`${r.name} | ${r.code}`));
     lines.push('\n🎙️ تم استلام العمليات و جاهزون للتعامل مع البلاغات\n');
@@ -387,32 +318,98 @@
     const ctx = previewCanvas.getContext('2d');
     ctx.clearRect(0,0,previewCanvas.width,previewCanvas.height);
     setProgress(0);
+    lastImageFile = null;
   }
 
-  // ===================================
-  // ربط الأحداث
-  // ===================================
-  
-  imageInput.addEventListener('change', async (e)=>{
+  // Tesseract Worker management
+  let workerPromise = null;
+
+  async function ensureWorker(){
+    if (workerPromise) return workerPromise;
+    workerPromise = (async ()=>{
+      await loadScriptOnce('https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js');
+      const { createWorker } = window.Tesseract || {};
+      if (!createWorker) throw new Error('Tesseract not loaded');
+      const w = await createWorker({ 
+          logger: m => {
+             if (m.status === "recognizing text") {
+                setProgress((m.progress || 0) * 100);
+             }
+          }
+      });
+      // عربي + إنجليزي (مهم عشان الكود بالحروف)
+      await w.loadLanguage("ara+eng");
+      await w.initialize("ara+eng");
+
+      // إعدادات تساعد في قراءة القوائم
+      await w.setParameters({
+          tessedit_pageseg_mode: "6", // assume block of text
+          preserve_interword_spaces: "1"
+      });
+      return w;
+    })();
+    return workerPromise;
+  }
+
+  // الـ OCR الرئيسي
+  async function runOCRFromFile(file){
+    setProgress(0);
+    lastImageFile = file; // حفظ الملف
+
+    try{
+      const img = await fileToImage(file);
+      drawPreviewFromImage(img); // **الخطوة المفقودة سابقاً**
+
+      const w = await ensureWorker();
+      
+      const { data } = await w.recognize(img);
+      const rawText = data?.text || "";
+      const cleaned = normalizeOCRText(rawText); 
+
+      const pairs = parsePairs(cleaned);
+
+      if (!pairs.length){
+        alert('لم يتم استخراج أسماء/أكواد بشكل كافٍ. جرّب صورة أوضح/أقرب للقائمة أو استخدم الاستيراد بالنص.');
+        setProgress(0);
+        textInput.value = cleaned;
+        return;
+      }
+      
+      textInput.value = pairs.map(p => `${p.name} | ${p.code}`).join('\n');
+
+      // **الخطوة الحاسمة: توزيع البيانات على النموذج الداخلي**
+      pairs.forEach(upsertRow);
+      renderRows();
+      
+      setProgress(100);
+
+    }catch(e){
+      console.error(e);
+      alert('صار خطأ أثناء الاستخراج. تأكد من الإنترنت (CDN) أو جرّب مرة ثانية.');
+      setProgress(0);
+    }
+  }
+
+
+  // Events
+  imageInput.addEventListener('change', (e)=>{
     const file = e.target.files?.[0];
-    if (!file) return;
-    lastImageFile = file;
-    // يتم التشغيل الآن عند لصق النص مباشرة أو عند الضغط على استيراد من النص
-    await runOCRFromFile(file); 
+    if (file) runOCRFromFile(file);
     imageInput.value = '';
   });
 
   pasteZone.addEventListener('click', ()=> pasteZone.focus());
 
   // Paste image via CTRL+V
-  document.addEventListener('paste', async (e)=>{
+  document.addEventListener('paste', (e)=>{
     const items = e.clipboardData?.items || [];
     for (const it of items){
       if (it.type && it.type.startsWith('image/')){
         const file = it.getAsFile();
         if (file){
-          lastImageFile = file;
-          await runOCRFromFile(file);
+          // نحفظ الملف مؤقتاً لتشغيل OCR عليه
+          lastImageFile = file; 
+          runOCRFromFile(file);
           e.preventDefault();
           return;
         }
@@ -421,8 +418,7 @@
   });
 
   importTextBtn.addEventListener('click', ()=>{
-    // استخدام parsePairs الجديدة في الاستيراد من النص أيضاً
-    const items = parsePairs(textInput.value); 
+    const items = parsePairs(textInput.value);
     if (!items.length){ alert('الصق نص صحيح أولاً.'); return; }
     items.forEach(upsertRow);
     renderRows();
@@ -437,7 +433,7 @@
 
   saveRowBtn.addEventListener('click', ()=>{
     const name = sanitizeArabicName(mName.value);
-    const code = sanitizeCode(mCode.value); // استخدام sanitizeCode الجديدة
+    const code = sanitizeCode(mCode.value);
     if (!name || !code){ alert('الاسم والكود مطلوبين'); return; }
     const item = { id: editId || uid(), name, code, loc: mLoc.value, state: mState.value };
     upsertRow(item);
@@ -462,6 +458,7 @@
     const row = rows.find(r=>r.id===id);
     if (!row) return;
     if (act==='loc') row.loc = LOCS.includes(el.value)? el.value : 'لوس';
+    // تثبيت الحالة هنا
     if (act==='state') row.state = STATES.includes(el.value)? el.value : 'في الميدان';
     renderRows();
   });
@@ -472,7 +469,7 @@
 
   copyFinalBtn.addEventListener('click', ()=> copyText(finalOut.textContent || ''));
 
-  clearImageBtn.addEventListener('click', ()=>{ clearPreview(); lastImageFile = null; });
+  clearImageBtn.addEventListener('click', clearPreview);
 
   clearAllBtn.addEventListener('click', ()=>{
     rows = [];
@@ -482,11 +479,9 @@
     receiverCode.value = '';
     deputyName.value = '';
     deputyCode.value = '';
-    setProgress(0);
-    lastImageFile = null;
+    clearPreview();
   });
 
   // Initial render
   renderRows();
-  setProgress(0);
 })();
